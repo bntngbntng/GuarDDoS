@@ -1,0 +1,20 @@
+services:
+  ddos-detector:
+    build: .
+    container_name: ddos-detection-system
+    privileged: true
+    ports:
+      - "6633:6633"  # Ryu Controller
+      - "8080:8080"  # Ryu Web UI
+      - "5000:5000"  # Flask API
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./models:/app/models
+    networks:
+      - ddos-net
+    command: /start.sh
+
+networks:
+  ddos-net:
+    driver: bridge

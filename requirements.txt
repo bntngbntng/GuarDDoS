@@ -1,0 +1,13 @@
+ryu
+scapy
+pandas
+numpy
+scikit-learn
+tensorflow
+matplotlib
+seaborn
+flask
+requests
+joblib
+eventlet==0.30.2
+mininet
