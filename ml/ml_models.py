@@ -266,48 +266,48 @@ class DDoSMLModels:
         except Exception as e:
             self.logger.error(f"Error plotting ROC curves: {e}")
 
-    def save_models(self):
+    def save_models(self, results):
         """Save trained models"""
         self.logger.info("Saving models...")
+        os.makedirs('/app/models', exist_ok=True)
 
-        try:
-            # Ensure models directory exists
-            os.makedirs('/app/models', exist_ok=True)
+        best_model_name = None
+        best_accuracy = 0.0
 
-            saved_count = 0
-
-            # Save traditional ML models
-            for name, model in self.models.items():
-                if name != 'DNN':
-                    try:
-                        filename = f'/app/models/{name.lower().replace(" ", "_").replace("-", "_")}_model.pkl'
-                        joblib.dump(model, filename)
-                        self.logger.info(f"Saved {name} model to {filename}")
-                        saved_count += 1
-                    except Exception as e:
-                        self.logger.error(f"Error saving {name}: {e}")
-
-            # Save DNN model
-            if 'DNN' in self.models:
+        # Save traditional ML models and find the best one
+        for name, model in self.models.items():
+            if name != 'DNN':
                 try:
-                    self.models['DNN'].save('/app/models/dnn_model.h5')
-                    self.logger.info("Saved DNN model")
-                    saved_count += 1
+                    filename = f'/app/models/{name.lower().replace(" ", "_").replace("-", "_")}_model.pkl'
+                    joblib.dump(model, filename)
+                    self.logger.info(f"Saved {name} model to {filename}")
+
+                    # Cek apakah model ini yang terbaik sejauh ini
+                    if name in results and results[name]['accuracy'] > best_accuracy:
+                        best_accuracy = results[name]['accuracy']
+                        best_model_name = name
+
                 except Exception as e:
-                    self.logger.error(f"Error saving DNN: {e}")
+                    self.logger.error(f"Error saving {name}: {e}")
 
-            # Save preprocessors
-            try:
-                joblib.dump(self.scaler, '/app/models/scaler.pkl')
-                self.logger.info("Saved scaler")
-                saved_count += 1
-            except Exception as e:
-                self.logger.error(f"Error saving scaler: {e}")
+        # Save a copy of the best model as 'best_model.pkl'
+        if best_model_name:
+            self.logger.info(f"Best performing model is {best_model_name} with accuracy {best_accuracy:.4f}.")
+            best_model_filename = f'/app/models/{best_model_name.lower().replace(" ", "_").replace("-", "_")}_model.pkl'
+            best_model_copy_path = '/app/models/best_model.pkl'
+            # Copy file
+            import shutil
+            shutil.copyfile(best_model_filename, best_model_copy_path)
+            self.logger.info(f"Copied best model to {best_model_copy_path}.")
 
-            self.logger.info(f"Successfully saved {saved_count} models/preprocessors")
+        # Save DNN model
+        if 'DNN' in self.models:
+            self.models['DNN'].save('/app/models/dnn_model.h5')
+            self.logger.info("Saved DNN model")
 
-        except Exception as e:
-            self.logger.error(f"Error in save_models: {e}")
+        # Save preprocessors
+        joblib.dump(self.scaler, '/app/models/scaler.pkl')
+        self.logger.info("Saved scaler")
 
     def train_all_models(self, csv_file):
         """Complete training pipeline"""
@@ -340,7 +340,7 @@ class DDoSMLModels:
             self.plot_all_results(results, y_test)
 
             # Save models
-            self.save_models()
+            self.save_models(results)
 
             return results
 
