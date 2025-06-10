@@ -12,6 +12,8 @@ import os
 import joblib
 from collections import defaultdict
 import time
+from ryu.lib.packet import packet, ethernet, ether_types, ipv4, arp
+
 
 class DDoSController(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
@@ -19,18 +21,17 @@ class DDoSController(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(DDoSController, self).__init__(*args, **kwargs)
         self.mac_to_port = {}
-        self.datapaths = {}  # Untuk menyimpan objek datapath (switch)
+        self.datapaths = {}
 
         # --- Bagian Monitoring & Pengumpulan Data ---
         self.flow_stats = defaultdict(lambda: defaultdict(int))
-        self.monitoring_interval = 15  # Kita percepat interval untuk mendapat lebih banyak data point
+        self.monitoring_interval = 10
         self.monitor_thread = hub.spawn(self._monitor)
         self.collected_data = []
 
         # --- Bagian Deteksi ML ---
         self.model = None
         self.scaler = None
-        # Pastikan nama fitur ini SAMA PERSIS dengan yang digunakan saat training
         self.feature_columns = [
             'packet_count', 'byte_count', 'duration_sec', 'duration_nsec', 'tx_bytes',
             'rx_bytes', 'byte_per_flow', 'packet_per_flow', 'packet_rate', 'packet_ins',
@@ -39,26 +40,24 @@ class DDoSController(app_manager.RyuApp):
         self._load_model()
 
     def _load_model(self):
-        """Mencoba memuat model ML saat startup."""
         try:
-            # Selalu muat 'best_model.pkl'
             self.model = joblib.load('/app/models/best_model.pkl')
             self.scaler = joblib.load('/app/models/scaler.pkl')
+            self.model_name = self.model.__class__.__name__
             self.logger.info("✅ Best performing ML model and scaler loaded successfully for real-time detection.")
         except Exception as e:
             self.logger.info(f"⚠️ Could not load ML model: {e}. Controller will run in data collection mode only.")
 
     @set_ev_cls(ofp_event.EventOFPStateChange, [MAIN_DISPATCHER, DEAD_DISPATCHER])
     def _state_change_handler(self, ev):
-        """Menangani koneksi dan diskoneksi switch."""
         datapath = ev.datapath
         if ev.state == MAIN_DISPATCHER:
             if datapath.id not in self.datapaths:
-                self.logger.info('Switch %d terhubung', datapath.id)
+                self.logger.info('Switch %d connected', datapath.id)
                 self.datapaths[datapath.id] = datapath
         elif ev.state == DEAD_DISPATCHER:
             if datapath.id in self.datapaths:
-                self.logger.info('Switch %d terputus', datapath.id)
+                self.logger.info('Switch %d closed', datapath.id)
                 del self.datapaths[datapath.id]
 
     def _monitor(self):
@@ -77,18 +76,41 @@ class DDoSController(app_manager.RyuApp):
 
     @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
     def _flow_stats_reply_handler(self, ev):
-        """Menerima dan memproses balasan statistik flow dari switch."""
+        """Menerima dan memproses balasan statistik flow dari switch (IP dan MAC)."""
         body = ev.msg.body
         dpid = ev.msg.datapath.id
 
-        for stat in sorted([flow for flow in body if flow.priority == 1], key=lambda flow: (flow.match['in_port'], flow.match['eth_dst'])):
-            # Ekstrak info dari flow stat
-            in_port = stat.match['in_port']
-            eth_src = stat.match['eth_src']
-            eth_dst = stat.match['eth_dst']
+        # Loop melalui semua flow yang dilaporkan oleh switch
+        for stat in body:
+            if stat.priority == 0:
+                continue
+            if 'eth_type' in stat.match and stat.match['eth_type'] == ether_types.ETH_TYPE_ARP:
+                continue
 
-            # Buat flow key yang unik
-            flow_key = f"{dpid}-{eth_src}-{eth_dst}-{in_port}"
+            src_id = None
+            dst_id = None
+            flow_key_part = None
+
+            # Cek apakah ini flow L3 (berbasis IP), ini prioritas kita
+            if 'ipv4_src' in stat.match and 'ipv4_dst' in stat.match:
+                src_id = stat.match['ipv4_src']
+                dst_id = stat.match['ipv4_dst']
+                flow_key_part = f"{src_id}-{dst_id}"
+
+            # Jika bukan flow L3, cek apakah ini flow L2 (berbasis MAC)
+            elif 'eth_src' in stat.match and 'eth_dst' in stat.match:
+                src_id = stat.match['eth_src']
+                dst_id = stat.match['eth_dst']
+                # Kita tambahkan in_port agar lebih unik untuk flow L2
+                in_port = stat.match.get('in_port', '')
+                flow_key_part = f"{src_id}-{dst_id}-{in_port}"
+
+            # Jika flow tidak bisa diidentifikasi, lewati
+            if not flow_key_part:
+                continue
+
+            # Buat flow key yg unik
+            flow_key = f"{dpid}-{flow_key_part}"
 
             # Hitung selisih dari statistik sebelumnya untuk mendapatkan rate
             packet_count_diff = stat.packet_count - self.flow_stats[flow_key]['packet_count']
@@ -98,9 +120,9 @@ class DDoSController(app_manager.RyuApp):
             self.flow_stats[flow_key]['packet_count'] = stat.packet_count
             self.flow_stats[flow_key]['byte_count'] = stat.byte_count
 
-            # Hanya proses jika ada lalu lintas baru
+            # Hanya proses jika ada lalu lintas baru yang signifikan
             if packet_count_diff > 0:
-                self.process_flow_features(dpid, eth_src, eth_dst, packet_count_diff, byte_count_diff, stat.duration_sec, stat.duration_nsec)
+                self.process_flow_features(dpid, src_id, dst_id, packet_count_diff, byte_count_diff, stat.duration_sec, stat.duration_nsec)
 
         # Setelah semua statistik dari semua switch diproses, simpan ke file
         if self.collected_data:
@@ -137,27 +159,34 @@ class DDoSController(app_manager.RyuApp):
             'port_bandwidth': 2 * tx_kbps,
         }
 
-        # Beri label untuk dataset training
         features['label'] = self.classify_traffic(features)
 
         # Lakukan prediksi real-time jika model ada
         if self.model:
             is_malicious = self.predict_traffic(features)
             if is_malicious == 1:
-                self.logger.warning(f"🚨 DDoS Attack Detected from {src_ip} via Switch {dpid}! Rate: {packet_rate:.2f} pps 🚨")
+                self.logger.warning(f"🚨 [{self.model_name}] DDoS Attack Detected from {src_ip}! Rate: {packet_rate:.2f} pps 🚨")
 
         self.collected_data.append(features)
 
     def classify_traffic(self, features):
         """Memberi label pada data untuk dataset training (ground truth)."""
-        src_ip = features['src_ip']
+        src_id = features['src_ip']
         packet_rate = features['packet_rate']
-        botnet_macs = [f'00:00:00:00:00:{i:02x}' for i in range(10, 14)] # MAC untuk bot10-bot13
+        if src_id == '10.0.0.100':
+            return 0 # Benign (Respons Server)
 
-        if src_ip in botnet_macs:
+        # Cek apakah sumbernya adalah botnet yang dikenal (berdasarkan MAC atau IP)
+        botnet_macs = [f'00:00:00:00:00:{i:02x}' for i in range(10, 14)]
+        botnet_ips = [f'10.0.0.{i}' for i in range(10, 14)]
+
+        if src_id in botnet_macs or src_id in botnet_ips:
             return 1 # Malicious
-        if packet_rate > 50: # Turunkan threshold karena interval lebih cepat
+
+        # Jika packet rate sangat tinggi dari sumber yang tidak dikenal, anggap malicious
+        if packet_rate > 50:
             return 1 # Malicious
+
         return 0 # Benign
 
     def predict_traffic(self, features_dict):
@@ -209,7 +238,6 @@ class DDoSController(app_manager.RyuApp):
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
-        """Handler untuk PacketIn, hanya untuk switching, bukan data collection."""
         msg = ev.msg
         datapath = msg.datapath
         ofproto = datapath.ofproto
@@ -220,32 +248,49 @@ class DDoSController(app_manager.RyuApp):
         eth = pkt.get_protocol(ethernet.ethernet)
 
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
-            return # abaikan lldp
+            return
 
-        dst = eth.dst
-        src = eth.src
+        dst_mac= eth.dst
+        src_mac = eth.src
         dpid = datapath.id
         self.mac_to_port.setdefault(dpid, {})
 
-        # Belajar MAC address untuk port forwarding
-        self.mac_to_port[dpid][src] = in_port
+        self.mac_to_port[dpid][src_mac] = in_port
 
-        if dst in self.mac_to_port[dpid]:
-            out_port = self.mac_to_port[dpid][dst]
+        if dst_mac in self.mac_to_port[dpid]:
+            out_port = self.mac_to_port[dpid][dst_mac]
         else:
             out_port = ofproto.OFPP_FLOOD
 
         actions = [parser.OFPActionOutput(out_port)]
 
         if out_port != ofproto.OFPP_FLOOD:
-            match = parser.OFPMatch(in_port=in_port, eth_src=src, eth_dst=dst)
-            # Kita tetap install flow agar switch tidak terus-terusan kirim PacketIn
-            # Kita bisa set timeout agar flow bisa di-refresh
-            self.add_flow(datapath, 1, match, actions)
 
+            # 'Match' berdasarkan tipe paket (IP atau lainnya)
+            if eth.ethertype == ether_types.ETH_TYPE_IP:
+                ip_pkt = pkt.get_protocol(ipv4.ipv4)
+                if ip_pkt:
+                    match = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IP,
+                                            ipv4_src=ip_pkt.src,
+                                            ipv4_dst=ip_pkt.dst)
+                    self.add_flow(datapath, 1, match, actions)
+            # Filter data ARP
+            elif eth.ethertype == ether_types.ETH_TYPE_ARP:
+                match = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_ARP,
+                                        in_port=in_port,
+                                        eth_src=src_mac,
+                                        eth_dst=dst_mac)
+                self.add_flow(datapath, 1, match, actions)
+
+            else:
+                # Match L2
+                match = parser.OFPMatch(in_port=in_port, eth_src=src_mac, eth_dst=dst_mac)
+                self.add_flow(datapath, 1, match, actions)
+
+        # Kirim paket keluar
         data = None
         if msg.buffer_id == ofproto.OFP_NO_BUFFER:
             data = msg.data
-
-        out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id, in_port=in_port, actions=actions, data=data)
+        out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id,
+                                in_port=in_port, actions=actions, data=data)
         datapath.send_msg(out)

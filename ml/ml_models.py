@@ -11,7 +11,7 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
 from sklearn.neural_network import MLPClassifier
-from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, roc_curve, auc
 import tensorflow as tf
 from tensorflow import keras
 import joblib
@@ -78,7 +78,7 @@ class DDoSMLModels:
             'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1),
             'Decision Tree': DecisionTreeClassifier(random_state=42),
             'K-NN': KNeighborsClassifier(n_neighbors=5, n_jobs=-1),
-            'SVM': SVC(kernel='rbf', random_state=42),
+            'SVM': SVC(kernel='rbf', random_state=42, probability=True),
             'MLP': MLPClassifier(hidden_layer_sizes=(100, 50), max_iter=500, random_state=42)
         }
 
@@ -181,7 +181,7 @@ class DDoSMLModels:
                 self.logger.error(f"Error evaluating {name}: {e}")
         return results
 
-    def plot_all_results(self, results, y_test):
+    def plot_all_results(self, results, y_test, history=None):
         """Plot comprehensive comparison results for all models."""
         self.logger.info("Generating all result visualizations...")
         os.makedirs('/app/models', exist_ok=True)
@@ -264,7 +264,40 @@ class DDoSMLModels:
             plt.close()
             self.logger.info("Saved ROC curves plot.")
         except Exception as e:
-            self.logger.error(f"Error plotting ROC curves: {e}")
+            import traceback
+            self.logger.error("!!! FAILED TO PLOT ROC CURVE !!!")
+            self.logger.error(f"Error type: {type(e).__name__}, Message: {e}")
+            traceback.print_exc()
+
+        # 5. Plot DNN Training History (jika ada)
+        if history:
+            try:
+                plt.figure(figsize=(12, 5))
+
+                # Plot Akurasi
+                plt.subplot(1, 2, 1)
+                plt.plot(history.history['accuracy'], label='Training Accuracy')
+                plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+                plt.title('DNN Accuracy over Epochs')
+                plt.xlabel('Epoch')
+                plt.ylabel('Accuracy')
+                plt.legend()
+
+                # Plot Loss
+                plt.subplot(1, 2, 2)
+                plt.plot(history.history['loss'], label='Training Loss')
+                plt.plot(history.history['val_loss'], label='Validation Loss')
+                plt.title('DNN Loss over Epochs')
+                plt.xlabel('Epoch')
+                plt.ylabel('Loss')
+                plt.legend()
+
+                plt.tight_layout()
+                plt.savefig('/app/models/5_dnn_training_history.png')
+                plt.close()
+                self.logger.info("Saved DNN training history plot.")
+            except Exception as e:
+                self.logger.error(f"Error plotting DNN history: {e}")
 
     def save_models(self, results):
         """Save trained models"""
@@ -331,13 +364,13 @@ class DDoSMLModels:
             self.train_traditional_models(X_train, y_train)
 
             # Train DNN
-            self.train_dnn_model(X_train, y_train, X_val, y_val)
+            dnn_history = self.train_dnn_model(X_train, y_train, X_val, y_val)
 
             # Evaluate models
             results = self.evaluate_models(X_test, y_test)
 
             # Plot results (pass y_test as parameter)
-            self.plot_all_results(results, y_test)
+            self.plot_all_results(results, y_test, history=dnn_history)
 
             # Save models
             self.save_models(results)

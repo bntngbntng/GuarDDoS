@@ -10,6 +10,12 @@ class TrafficGenerator:
     def __init__(self, net):
         self.net = net
         self.is_running = False
+        self.host_locks = {host.name: threading.Lock() for host in self.net.hosts}
+
+    def safe_cmd(self, host_name, command):
+        """Send a command to a host safely using a lock."""
+        with self.host_locks[host_name]:
+            self.net.get(host_name).cmd(command)
         
     def start_benign_traffic(self):
         """Generate benign network traffic"""
@@ -21,11 +27,11 @@ class TrafficGenerator:
                 # HTTP-like traffic
                 for host in hosts:
                     if random.random() < 0.3:  # 30% chance
-                        self.net.get(host).cmd(f'ping -c 1 10.0.0.100 &')
-                        
+                        self.safe_cmd(host, f'ping -c 1 10.0.0.100 &')
+
                     if random.random() < 0.2:  # 20% chance  
-                        self.net.get(host).cmd(f'wget -q -O /dev/null http://10.0.0.100:8000/ &')
-                
+                        self.safe_cmd(host, f'wget -q -O /dev/null http://10.0.0.100:8000/ &')
+
                 time.sleep(random.uniform(1, 5))
         
         thread = threading.Thread(target=generate_benign)
@@ -58,7 +64,7 @@ class TrafficGenerator:
                     # High-rate SYN flood
                     cmd = f'hping3 -S -p 80 --flood {target_ip}'
                     print(f"Bot {bot} starting SYN flood...")
-                    self.net.get(bot).cmd(f'{cmd} &')
+                    self.safe_cmd(bot, f'{cmd} &')
 
             thread = threading.Thread(target=bot_attack)
             thread.daemon = True
@@ -72,8 +78,8 @@ class TrafficGenerator:
                     port = random.randint(1000, 9000)
                     cmd = f'hping3 -2 -p {port} --flood {target_ip}'
                     print(f"Bot {bot} starting UDP flood...")
-                    self.net.get(bot).cmd(f'{cmd} &')
-            
+                    self.safe_cmd(bot, f'{cmd} &')
+
             thread = threading.Thread(target=bot_attack)
             thread.daemon = True
             thread.start()
@@ -85,8 +91,8 @@ class TrafficGenerator:
                     # ICMP flood
                     cmd = f'ping -f {target_ip}'
                     print(f"Bot {bot} starting ICMP flood...")
-                    self.net.get(bot).cmd(f'{cmd} &')
-            
+                    self.safe_cmd(bot, f'{cmd} &')
+
             thread = threading.Thread(target=bot_attack)
             thread.daemon = True
             thread.start()

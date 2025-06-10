@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, send_from_directory
 import pandas as pd
 import json
 import os
 from datetime import datetime
 import threading
 import time
+
 
 app = Flask(__name__)
 
@@ -112,6 +113,12 @@ def traffic_chart():
             print(f"Error generating chart data: {e}")
     
     return jsonify({'timestamps': [], 'benign': [], 'malicious': []})
+
+@app.route('/api/training_results/<path:filename>')
+def serve_training_image(filename):
+    """API endpoint to serve training result images."""
+    # Pastikan path absolut ke direktori models
+    return send_from_directory('/app/models', filename)
 
 if __name__ == '__main__':
     # Start background stats updater
