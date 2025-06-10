@@ -4,7 +4,7 @@ from mininet.net import Mininet
 from mininet.node import Controller, RemoteController, OVSSwitch
 from mininet.cli import CLI
 from mininet.log import setLogLevel, info
-from mininet.link import TCLink
+from mininet.link import TCLink, Intf
 import time
 import threading
 

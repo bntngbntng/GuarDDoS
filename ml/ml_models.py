@@ -181,12 +181,14 @@ class DDoSMLModels:
                 self.logger.error(f"Error evaluating {name}: {e}")
         return results
 
+    # Di dalam file ml/ml_models.py
+
     def plot_all_results(self, results, y_test, history=None):
-        """Plot comprehensive comparison results for all models."""
-        self.logger.info("Generating all result visualizations...")
+        """Plot comprehensive comparison results for all models with improved layout."""
+        self.logger.info("Generating all result visualizations with improved layout...")
         os.makedirs('/app/models', exist_ok=True)
 
-        # 1. Plot Perbandingan Metrik Kinerja (Accuracy, Precision, Recall, F1)
+        # 1. Plot Perbandingan Metrik Kinerja
         try:
             metrics_data = {
                 'Accuracy': [res['accuracy'] for res in results.values()],
@@ -196,10 +198,11 @@ class DDoSMLModels:
             }
             metrics_df = pd.DataFrame(metrics_data, index=results.keys())
 
-            metrics_df.plot(kind='bar', figsize=(15, 8), colormap='viridis')
-            plt.title('Model Performance Metrics Comparison')
-            plt.ylabel('Score')
-            plt.xticks(rotation=45)
+            metrics_df.plot(kind='bar', figsize=(12, 7), colormap='viridis')
+            plt.title('Model Performance Metrics Comparison', fontsize=16)
+            plt.ylabel('Score', fontsize=12)
+            plt.xlabel('Models', fontsize=12)
+            plt.xticks(rotation=45, ha='right')
             plt.tight_layout()
             plt.savefig('/app/models/1_performance_metrics.png')
             plt.close()
@@ -210,22 +213,33 @@ class DDoSMLModels:
         # 2. Plot Semua Confusion Matrix
         try:
             num_models = len(results)
-            fig, axes = plt.subplots(1, num_models, figsize=(5 * num_models, 4))
-            fig.suptitle('Confusion Matrices for All Models', fontsize=16)
+            ncols = 2
+            nrows = (num_models + ncols - 1) // ncols
+
+            fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(12, 6 * nrows))
+            fig.suptitle('Confusion Matrices for All Models', fontsize=20)
+
+            axes = axes.flatten()
+
             for i, (name, res) in enumerate(results.items()):
                 ax = axes[i]
-                sns.heatmap(res['confusion_matrix'], annot=True, fmt='d', cmap='Blues', ax=ax)
-                ax.set_title(name)
-                ax.set_xlabel('Predicted')
-                ax.set_ylabel('Actual')
+                sns.heatmap(res['confusion_matrix'], annot=True, fmt='d', cmap='Blues', ax=ax, annot_kws={"size": 14})
+                ax.set_title(name, fontsize=14)
+                ax.set_xlabel('Predicted', fontsize=12)
+                ax.set_ylabel('Actual', fontsize=12)
+
+            # Sembunyikan subplot yang tidak terpakai (jika jumlah model ganjil)
+            for j in range(i + 1, len(axes)):
+                axes[j].set_visible(False)
+
             plt.tight_layout(rect=[0, 0, 1, 0.96])
             plt.savefig('/app/models/2_all_confusion_matrices.png')
             plt.close()
-            self.logger.info("Saved all confusion matrices plot.")
+            self.logger.info("Saved all confusion matrices plot with grid layout.")
         except Exception as e:
             self.logger.error(f"Error plotting confusion matrices: {e}")
 
-        # 3. Plot Feature Importance (dari Random Forest)
+        # 3. Plot Feature Importance
         try:
             if 'Random Forest' in self.models:
                 rf_model = self.models['Random Forest']
@@ -236,7 +250,7 @@ class DDoSMLModels:
 
                 plt.figure(figsize=(10, 8))
                 sns.barplot(x='importance', y='feature', data=feature_importance_df)
-                plt.title('Feature Importance from Random Forest')
+                plt.title('Feature Importance from Random Forest', fontsize=16)
                 plt.tight_layout()
                 plt.savefig('/app/models/3_feature_importance.png')
                 plt.close()
@@ -251,15 +265,16 @@ class DDoSMLModels:
                 if res['probabilities'] is not None:
                     fpr, tpr, _ = roc_curve(y_test, res['probabilities'])
                     roc_auc = auc(fpr, tpr)
-                    plt.plot(fpr, tpr, label=f'{name} (AUC = {roc_auc:.2f})')
+                    plt.plot(fpr, tpr, lw=2, label=f'{name} (AUC = {roc_auc:.3f})')
 
-            plt.plot([0, 1], [0, 1], 'k--')
+            plt.plot([0, 1], [0, 1], 'k--', lw=2)
             plt.xlim([0.0, 1.0])
             plt.ylim([0.0, 1.05])
-            plt.xlabel('False Positive Rate')
-            plt.ylabel('True Positive Rate')
-            plt.title('Receiver Operating Characteristic (ROC) Curves')
+            plt.xlabel('False Positive Rate', fontsize=12)
+            plt.ylabel('True Positive Rate', fontsize=12)
+            plt.title('Receiver Operating Characteristic (ROC) Curves', fontsize=16)
             plt.legend(loc="lower right")
+            plt.grid(True)
             plt.savefig('/app/models/4_roc_curves.png')
             plt.close()
             self.logger.info("Saved ROC curves plot.")
@@ -269,33 +284,34 @@ class DDoSMLModels:
             self.logger.error(f"Error type: {type(e).__name__}, Message: {e}")
             traceback.print_exc()
 
-        # 5. Plot DNN Training History (jika ada)
+        # 5. Plot DNN Training History
         if history:
             try:
-                plt.figure(figsize=(12, 5))
+                fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 12))
+                fig.suptitle('DNN Training History', fontsize=20)
 
                 # Plot Akurasi
-                plt.subplot(1, 2, 1)
-                plt.plot(history.history['accuracy'], label='Training Accuracy')
-                plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
-                plt.title('DNN Accuracy over Epochs')
-                plt.xlabel('Epoch')
-                plt.ylabel('Accuracy')
-                plt.legend()
+                ax1.plot(history.history['accuracy'], label='Training Accuracy')
+                ax1.plot(history.history['val_accuracy'], label='Validation Accuracy')
+                ax1.set_title('Model Accuracy over Epochs', fontsize=14)
+                ax1.set_ylabel('Accuracy', fontsize=12)
+                ax1.set_xlabel('Epoch', fontsize=12)
+                ax1.legend(loc='lower right')
+                ax1.grid(True)
 
                 # Plot Loss
-                plt.subplot(1, 2, 2)
-                plt.plot(history.history['loss'], label='Training Loss')
-                plt.plot(history.history['val_loss'], label='Validation Loss')
-                plt.title('DNN Loss over Epochs')
-                plt.xlabel('Epoch')
-                plt.ylabel('Loss')
-                plt.legend()
+                ax2.plot(history.history['loss'], label='Training Loss')
+                ax2.plot(history.history['val_loss'], label='Validation Loss')
+                ax2.set_title('Model Loss over Epochs', fontsize=14)
+                ax2.set_ylabel('Loss', fontsize=12)
+                ax2.set_xlabel('Epoch', fontsize=12)
+                ax2.legend(loc='upper right')
+                ax2.grid(True)
 
-                plt.tight_layout()
+                plt.tight_layout(rect=[0, 0, 1, 0.96])
                 plt.savefig('/app/models/5_dnn_training_history.png')
                 plt.close()
-                self.logger.info("Saved DNN training history plot.")
+                self.logger.info("Saved DNN training history plot with vertical layout.")
             except Exception as e:
                 self.logger.error(f"Error plotting DNN history: {e}")
 
@@ -315,7 +331,6 @@ class DDoSMLModels:
                     joblib.dump(model, filename)
                     self.logger.info(f"Saved {name} model to {filename}")
 
-                    # Cek apakah model ini yang terbaik sejauh ini
                     if name in results and results[name]['accuracy'] > best_accuracy:
                         best_accuracy = results[name]['accuracy']
                         best_model_name = name
