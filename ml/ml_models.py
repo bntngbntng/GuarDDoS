@@ -52,7 +52,7 @@ class DDoSMLModels:
 
         # Separate features and target
         feature_columns = [col for col in df.columns if col not in [
-            'label', 'src_ip', 'dst_ip', 'switch_id', 'dt'
+            'label', 'src_ip', 'dst_ip', 'switch_id', 'dt', 'port_num'
         ]]
         self.feature_columns = feature_columns
 
