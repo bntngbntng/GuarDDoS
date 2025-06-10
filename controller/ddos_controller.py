@@ -11,6 +11,7 @@ import pandas as pd
 import os
 import joblib
 from collections import defaultdict
+import time
 
 class DDoSController(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
@@ -107,7 +108,6 @@ class DDoSController(app_manager.RyuApp):
 
     def process_flow_features(self, dpid, src_ip, dst_ip, packet_count, byte_count, duration_sec, duration_nsec):
         """Menghitung fitur dan menyimpannya."""
-        # Duration tidak bisa 0 untuk menghindari ZeroDivisionError
         duration = duration_sec + duration_nsec * 1e-9
         duration = max(duration, 1e-9)
 
@@ -121,12 +121,12 @@ class DDoSController(app_manager.RyuApp):
             'switch_id': dpid,
             'duration_sec': duration_sec,
             'duration_nsec': duration_nsec,
-            'src_ip': src_ip, # Note: ini adalah MAC address, tapi kita anggap IP untuk konsistensi
+            'src_ip': src_ip,
             'dst_ip': dst_ip,
-            'port_num': 0, # Port tidak tersedia di flow stat level ini, kita set 0
+            'port_num': 0,
             'tx_bytes': byte_count,
             'rx_bytes': byte_count,
-            'dt': int(hub.time.time()),
+            'dt': int(time.time()),
             'byte_per_flow': byte_count,
             'packet_per_flow': packet_count,
             'packet_rate': packet_rate,
