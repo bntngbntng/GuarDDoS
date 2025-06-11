@@ -55,14 +55,14 @@ class DashboardManager:
                 attacks = []
                 for _, row in recent_attacks.iterrows():
                     attacks.append({
-                        'timestamp': datetime.fromtimestamp(row['dt']).strftime('%Y-%m-%d %H:%M:%S'),
+                        'timestamp': row['dt'],
                         'src_ip': row['src_ip'],
                         'dst_ip': row['dst_ip'],
                         'packet_rate': row['packet_rate'],
                         'severity': 'High' if row['packet_rate'] > 100 else 'Medium'
                     })
                 
-                return attacks
+                return attacks[::-1]
             except Exception as e:
                 print(f"Error getting recent attacks: {e}")
         
@@ -117,8 +117,37 @@ def traffic_chart():
 @app.route('/api/training_results/<path:filename>')
 def serve_training_image(filename):
     """API endpoint to serve training result images."""
-    # Pastikan path absolut ke direktori models
     return send_from_directory('/app/models', filename)
+
+@app.route('/api/training_log')
+def get_training_log():
+    """API endpoint untuk membaca beberapa baris terakhir dari file log utama."""
+    log_path = '/app/logs/main.log'
+    try:
+        if os.path.exists(log_path):
+            with open(log_path, 'r') as f:
+                # Baca semua baris, ambil 30 baris terakhir
+                lines = f.readlines()
+                return jsonify({'logs': lines[-30:]})
+        else:
+            return jsonify({'logs': ['Log file not found yet...']})
+    except Exception as e:
+        return jsonify({'logs': [f'Error reading log file: {e}']})
+
+@app.route('/api/ryu_log')
+def get_ryu_log():
+    """API endpoint untuk membaca beberapa baris terakhir dari file log Ryu."""
+    log_path = '/app/logs/ryu.log'
+    try:
+        if os.path.exists(log_path):
+            with open(log_path, 'r') as f:
+                lines = f.readlines()
+                # Ambil 50 baris terakhir karena log Ryu bisa sangat cepat
+                return jsonify({'logs': lines[-50:]})
+        else:
+            return jsonify({'logs': ['Ryu log file not found yet...']})
+    except Exception as e:
+        return jsonify({'logs': [f'Error reading Ryu log file: {e}']})
 
 if __name__ == '__main__':
     # Start background stats updater
