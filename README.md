@@ -8,24 +8,23 @@ It uses **Ryu SDN Controller**, **Mininet network emulation**, and multiple ML m
 ---
 ## Table of Contents
 
-- [Description](#-description)
-- [Key Features](#-key-features)
-- [System Architecture](#️-system-architecture)
-- [Objectives](#-objectives)
-- [Getting Started](#-getting-started)
+- [Description](#description)
+- [Key Features](#key-features)
+- [System Architecture](#system-architecture)
+- [Objectives](#objectives)
+- [Getting Started](#getting-started)
   - [Prerequisites](#prerequisites)
   - [Quick Start](#quick-start)
   - [System Components](#system-components)
-- [⚙System Pipeline Execution](#️-system-pipeline-execution)
-- [Monitoring and Analysis](#-monitoring-and-analysis)
+- [System Pipeline Execution](#system-pipeline-execution)
+- [Monitoring and Analysis](#monitoring-and-analysis)
   - [Dashboard Features](#dashboard-features)
   - [Manual Operations](#manual-operations)
-- [Understanding the Output](#-understanding-the-output)
+- [Understanding the Output](#understanding-the-output)
   - [Dataset Structure](#dataset-structure)
   - [Model Performance Files](#model-performance-files)
   - [Log Analysis](#log-analysis)
-- [Important Notes](#-important-notes)
-
+- [Important Notes](#important-notes)
 ---
 ## Tech Stack
 
