@@ -6,6 +6,21 @@
 It uses **Ryu SDN Controller**, **Mininet network emulation**, and multiple ML models to provide intelligent network traffic analysis and threat detection.
 
 ---
+## Table of Contents
+
+- [Description](#description)
+- [Project Schema(s)](#project-schemas)
+- [Tech Stack](#tech-stack)
+- [Key Features](#key-features)
+- [Objectives](#objectives)
+- [🚀 Quick Start](#-quick-start)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+- [Contributing](#contributing)
+- [Note](#note)
+- [License](#license)
+
+---
 ## Project Schema(s)
 
 ![Structural Poverty](assets/schemas.png)
@@ -40,6 +55,25 @@ It uses **Ryu SDN Controller**, **Mininet network emulation**, and multiple ML m
 -   **Performance Evaluation**: Compare multiple ML algorithms for optimal detection accuracy.
 -   **Automated Response**: Provide real-time alerts and visualization of network threats.
 -   **Educational Platform**: Demonstrate SDN and ML integration for cybersecurity.
+
+---
+## 🚀 Quick Start
+
+---
+### **Prerequisites**
+
+- Docker & Docker Compose installed
+- At least **4GB RAM** & **2 CPU cores**
+- Linux host system (recommended for Mininet)
+
+---
+### **Installation**
+
+```bash
+git clone <repository-url>
+cd ddos-guardian
+docker-compose up --build  
+```
 
 ---
 ## Contributing
