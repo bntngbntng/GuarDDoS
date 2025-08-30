@@ -33,7 +33,7 @@ It uses **Ryu SDN Controller**, **Mininet network emulation**, and multiple ML m
 -   **Automated Data Collection**: Generates labeled datasets directly from network simulations.
 
 ---
-## 🎯 Objectives
+## Objectives
 
 -   **Network Traffic Analysis**: Monitor and analyze network flow statistics in real-time.
 -   **Attack Detection**: Identify various DDoS attack patterns using machine learning.
