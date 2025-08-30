@@ -13,7 +13,7 @@ It uses **Ryu SDN Controller**, **Mininet network emulation**, and multiple ML m
 - [Tech Stack](#tech-stack)
 - [Key Features](#key-features)
 - [Objectives](#objectives)
-- [🚀 Quick Start](#-quick-start)
+- [Quick Start](#-quick-start)
   - [Prerequisites](#prerequisites)
   - [Installation](#installation)
 - [Contributing](#contributing)
