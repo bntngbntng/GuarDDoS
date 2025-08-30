@@ -26,7 +26,7 @@ It uses **Ryu SDN Controller**, **Mininet network emulation**, and multiple ML m
 ![Structural Poverty](assets/schemas.png)
 
 ---
-## Tech Stack
+## Tech Stacks
 
 | Component         | Technology Used |
 |-------------------|-----------------|
