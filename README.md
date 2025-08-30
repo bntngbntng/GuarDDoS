@@ -57,9 +57,8 @@ It uses **Ryu SDN Controller**, **Mininet network emulation**, and multiple ML m
 -   **Educational Platform**: Demonstrate SDN and ML integration for cybersecurity.
 
 ---
-## 🚀 Quick Start
+## Quick Start
 
----
 ### **Prerequisites**
 
 - Docker & Docker Compose installed
