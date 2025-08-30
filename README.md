@@ -42,3 +42,25 @@ It uses **Ryu SDN Controller**, **Mininet network emulation**, and multiple ML m
 -   **Educational Platform**: Demonstrate SDN and ML integration for cybersecurity.
 
 ---
+## Contributing
+
+Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
+
+If you have a suggestion that would make this better, please fork the repo and create a pull request. You can also simply open an issue with the tag "enhancement".
+
+1.  Fork the Project.
+2.  Create your own Branch.
+3.  Commit your Changes.
+4.  Push to the Branch.
+5.  Open a Pull Request.
+
+---
+## Note
+
+1. **I made it with my own production, ergo, you shall make it your own. For further context, in this tutorial, I use K3S instead of Minikube for instance.**
+2. **This repository is probably not going to be maintained for awhile or anytime soon.**
+
+---
+## License
+
+This project is licensed under the [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) - see the [LICENSE](LICENSE) file for details.
